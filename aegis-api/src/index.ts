@@ -7,9 +7,12 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// 1. Enable CORS so your React frontend (localhost:5173) can communicate with your API
+// 1. Enable CORS for both Localhost AND your Live Production Site
 app.use('/*', cors({
-  origin: 'http://localhost:5173',
+  origin: [
+    'http://localhost:5173', 
+    'https://aegis-digital.pages.dev' // ADD YOUR LIVE SITE URL HERE
+  ],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   exposeHeaders: ['Content-Length'],
@@ -677,13 +680,30 @@ app.post('/api/contact', async (c) => {
     return c.json({ success: false, error: error.message }, 500);
   }
 });
-
+// 18. GET ALL CONTACT MESSAGES (Admin only)
 app.get('/api/admin/messages', async (c) => {
   try {
     const { results } = await c.env.aegis_db
       .prepare("SELECT * FROM contact_messages ORDER BY created_at DESC")
       .all();
     return c.json({ success: true, messages: results });
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+// 19. DELETE A CONTACT MESSAGE (Admin only)
+app.delete('/api/admin/messages/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const result = await c.env.aegis_db
+      .prepare("DELETE FROM contact_messages WHERE id = ?")
+      .bind(id)
+      .run();
+      
+    if (result.meta.changes === 0) {
+      return c.json({ success: false, message: 'Message not found.' }, 404);
+    }
+    return c.json({ success: true, message: 'Message deleted successfully.' });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 500);
   }

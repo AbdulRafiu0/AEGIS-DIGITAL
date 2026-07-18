@@ -21,7 +21,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('overview');
   const [dbApplications, setDbApplications] = useState<DBApplication[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]); // New messages state
+  const [messages, setMessages] = useState<any[]>([]);
   const [isLoadingApps, setIsLoadingApps] = useState(true);
   
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
@@ -37,7 +37,6 @@ export default function Admin() {
   const [editPhone, setEditPhone] = useState('');
   const [editCountry, setEditCountry] = useState('');
 
-  // --- MODAL STATE ---
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [taskName, setTaskName] = useState('');
   const [driveLink, setDriveLink] = useState('');
@@ -52,7 +51,7 @@ export default function Admin() {
       setLoggedInAdmin(adminName || 'Administrator');
       fetchApplications();
       fetchSubmissions();
-      fetchMessages(); // Fetches messages on load
+      fetchMessages();
     }
   }, []);
 
@@ -71,6 +70,17 @@ export default function Admin() {
     } catch (e) { toast({ variant: 'destructive', title: "Network error." }); }
   };
 
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!window.confirm("Delete this message permanently?")) return;
+    try {
+      const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/messages/${msgId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setMessages(prev => prev.filter(m => m.id !== msgId));
+        toast({ title: "Message Deleted", description: "The message has been purged." });
+      } else { toast({ variant: 'destructive', title: "Error", description: "Failed to delete message." }); }
+    } catch (e) { toast({ variant: 'destructive', title: "Network error." }); }
+  };
+
   const handleAdminLogin = (e: React.FormEvent) => { e.preventDefault(); const matches = allowedAdmins.find(acc => acc.username === inputUsername && acc.password === inputPassword); if (matches) { sessionStorage.setItem('aegis_admin_session', 'true'); sessionStorage.setItem('aegis_admin_user', inputUsername); setIsAdminLoggedIn(true); setLoggedInAdmin(inputUsername); fetchApplications(); fetchSubmissions(); fetchMessages(); toast({ title: "Access Granted", description: `Welcome back, ${inputUsername}!` }); } else { toast({ variant: 'destructive', title: "Authentication Failed", description: "Invalid admin credentials." }); } };
   const fetchApplications = async () => { setIsLoadingApps(true); try { const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/applications'); const data = await response.json(); if (data.success) setDbApplications(data.applications); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync records.' }); } finally { setIsLoadingApps(false); } };
   const fetchSubmissions = async () => { try { const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions'); const data = await response.json(); if (data.success) setSubmissions(data.submissions); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync submissions.' }); } };
@@ -78,7 +88,7 @@ export default function Admin() {
   const handleUpdateStatus = async (appId: string, newStatus: string) => { try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${appId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus.toLowerCase() }), }); if (response.ok) { setDbApplications(prev => prev.map(app => app.id === appId ? { ...app, status: newStatus.toLowerCase() } : app)); toast({ title: `Status Updated`, description: `Application successfully ${newStatus.toLowerCase()}.` }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: 'Failed to rewrite state.' }); } };
   const handleIssueCertificate = async (appId: string) => { if (!window.confirm("Issue certificate for this student?")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${appId}/issue-certificate`, { method: 'PUT' }); if (response.ok) { setDbApplications(prev => prev.map(app => app.id === appId ? { ...app, certificateIssued: true } : app)); toast({ title: "Certificate Issued", description: "The student has been marked as certified." }); } } catch (e) { toast({ variant: 'destructive', title: "Error", description: "Failed to issue certificate." }); } };
   const handleUpdateSubmissionStatus = async (subId: string, newStatus: string) => { try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions/${subId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus.toLowerCase(), feedback: "" }), }); if (response.ok) { setSubmissions(prev => prev.map(sub => sub.id === subId ? { ...sub, status: newStatus.toLowerCase() } : sub)); toast({ title: 'Status Updated', description: `Submission successfully marked as ${newStatus.toLowerCase()}.` }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: 'Failed to update submission status.' }); } };
-  const handleDeleteSubmission = async (subId: string) => { if (!window.confirm("Delete this submission permanently?")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions/${subId}`, { method: 'DELETE' }); if (response.ok) { setSubmissions(prev => prev.filter(s => s.id !== subId)); toast({ title: "Submission Deleted", description: "The assignment review row was purged." }); } } catch (e) { toast({ variant: 'destructive', title: "Error", description: "Could not delete submission." }); } };
+  const handleDeleteSubmission = async (subId: string) => { if (!window.confirm("Delete this submission permanently?")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions/${subId}`, { method: 'DELETE' }); if (response.ok) { setSubmissions(prev => prev.filter(s => s.id !== subId)); toast({ title: "Submission Deleted", description: "The assignment review row was purged." }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: "Could not delete submission." }); } };
   const handleDeleteApplication = async (appId: string) => { if (!window.confirm("Are you absolutely sure you want to remove this student application from the system? This action is permanent.")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${appId}`, { method: 'DELETE', }); const data = await response.json(); if (data.success) { setDbApplications(prev => prev.filter(app => app.id !== appId)); toast({ title: "Student Removed", description: "The record has been permanently deleted from the database." }); } } catch (err) { toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not purge database row." }); } };
   const startEditing = (app: DBApplication) => { setEditingApp(app); setEditStudentName(app.studentName || ''); setEditStudentEmail(app.studentEmail || ''); setEditNewPassword(''); setEditProgramName(app.programName); try { const parsed = JSON.parse(app.details); setEditPhone(parsed.phone || ''); setEditCountry(parsed.country || ''); } catch (e) { setEditPhone(''); setEditCountry(''); } };
   const handleSaveEdits = async (e: React.FormEvent) => { e.preventDefault(); if (!editingApp) return; try { let currentDetails: any = {}; try { currentDetails = JSON.parse(editingApp.details); } catch(e) {} const updatedDetails = JSON.stringify({ ...currentDetails, phone: editPhone, country: editCountry, studentEmail: editStudentEmail }); const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${editingApp.id}/edit`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentName: editStudentName, studentEmail: editStudentEmail, programName: editProgramName, details: updatedDetails }) }); const data = await response.json(); if (!data.success) { throw new Error(data.error || "Failed to update text records."); } if (editNewPassword.trim() !== '') { const passResponse = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${editingApp.id}/reset-password`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPassword: editNewPassword }) }); const passData = await passResponse.json(); if (!passData.success) { throw new Error(passData.error || "Profile updated but password change failed."); } } setDbApplications(prev => prev.map(app => app.id === editingApp.id ? { ...app, studentName: editStudentName, studentEmail: editStudentEmail, programName: editProgramName, details: updatedDetails } : app)); setEditingApp(null); toast({ title: "Changes Saved", description: "Student dossier metrics and credentials updated successfully." }); } catch (err: any) { toast({ variant: 'destructive', title: "Update Error", description: err.message || "Failed to push modifications." }); } };
@@ -125,15 +135,18 @@ export default function Admin() {
                 <p className="text-muted-foreground italic">No messages received.</p>
               ) : (
                 messages.map((msg: any) => (
-                  <div key={msg.id} className="p-4 border rounded-lg bg-card">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-lg">{msg.subject}</p>
-                        <p className="text-sm text-primary font-medium">{msg.name} &lt;{msg.email}&gt;</p>
+                  <div key={msg.id} className="p-4 border rounded-lg bg-card flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-lg">{msg.subject}</p>
+                          <p className="text-sm text-primary font-medium">{msg.name} &lt;{msg.email}&gt;</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap ml-4">{new Date(msg.created_at).toLocaleString()}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{new Date(msg.created_at).toLocaleString()}</p>
+                      <p className="mt-3 text-sm text-foreground">{msg.message}</p>
                     </div>
-                    <p className="mt-3 text-sm text-foreground">{msg.message}</p>
+                    <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 shrink-0" onClick={() => handleDeleteMessage(msg.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 ))
               )}
@@ -144,7 +157,6 @@ export default function Admin() {
       
       <AnimatePresence> {editingApp && ( <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"> <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full max-w-md bg-card border shadow-xl rounded-xl p-6 relative"> <button className="absolute right-4 top-4 text-muted-foreground hover:text-foreground" onClick={() => setEditingApp(null)}><X className="h-5 w-5" /></button> <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><Edit3 className="h-5 w-5 text-primary" /> Modify Student Dossier</h3> <form onSubmit={handleSaveEdits} className="space-y-4"> <div className="space-y-1"> <label className="text-xs font-semibold text-muted-foreground uppercase">Student Full Name</label> <Input value={editStudentName} onChange={(e) => setEditStudentName(e.target.value)} required /> </div> <div className="space-y-1"> <label className="text-xs font-semibold text-muted-foreground uppercase">Email Address</label> <Input type="email" value={editStudentEmail} onChange={(e) => setEditStudentEmail(e.target.value)} required /> </div> <div className="space-y-1"> <label className="text-xs font-semibold text-amber-500 uppercase">Force Change Password (Leave blank to preserve)</label> <Input type="text" placeholder="Type new authentication passphrase" value={editNewPassword} onChange={(e) => setEditNewPassword(e.target.value)} /> </div> <div className="space-y-1"> <label className="text-xs font-semibold text-muted-foreground uppercase">Program Track Name</label> <Input value={editProgramName} onChange={(e) => setEditProgramName(e.target.value)} required /> </div> <div className="space-y-1"> <label className="text-xs font-semibold text-muted-foreground uppercase">Phone Number</label> <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} required /> </div> <div className="space-y-1"> <label className="text-xs font-semibold text-muted-foreground uppercase">Country Region</label> <Input value={editCountry} onChange={(e) => setEditCountry(e.target.value)} required /> </div> <div className="flex gap-2 pt-2"> <Button type="submit" className="w-full"><Save className="h-4 w-4 mr-1.5" /> Save Overwrites</Button> <Button type="button" variant="outline" onClick={() => setEditingApp(null)}>Cancel</Button> </div> </form> </motion.div> </div> )} </AnimatePresence>
       
-      {/* --- ASSIGNMENT MODAL --- */}
       {assigningId && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
           <Card className="w-full max-w-sm p-6 shadow-2xl">
