@@ -11,17 +11,13 @@ import { useToast } from '@/hooks/use-toast';
 import AdminPipeline from '@/components/admin/AdminPipeline';
 import AdminPayments from '@/components/admin/AdminPayments';
 import AdminAnnouncements from '@/components/admin/AdminAnnouncements';
+import { adminFetch, setAdminToken, getAdminToken, clearAdminSession, API_BASE } from '@/lib/adminApi';
 
 interface DBApplication {
   id: string; programName: string; status: string; createdAt: string; studentName: string; studentEmail: string; details: string; internId?: string; certificateIssued?: boolean;
 }
 
 export default function Admin() {
-  const allowedAdmins = [
-    { username: 'admin', password: 'admin' },
-    { username: 'rafiu', password: 'admin' }
-  ];
-
   const [activeTab, setActiveTab] = useState('overview');
   const [dbApplications, setDbApplications] = useState<DBApplication[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -31,8 +27,9 @@ export default function Admin() {
 
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [loggedInAdmin, setLoggedInAdmin] = useState('');
-  const [inputUsername, setInputUsername] = useState('');
+  const [inputEmail, setInputEmail] = useState('');
   const [inputPassword, setInputPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [editingApp, setEditingApp] = useState<DBApplication | null>(null);
   const [editStudentName, setEditStudentName] = useState('');
@@ -86,9 +83,9 @@ export default function Admin() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const sessionAuth = sessionStorage.getItem('aegis_admin_session');
+    const token = getAdminToken();
     const adminName = sessionStorage.getItem('aegis_admin_user');
-    if (sessionAuth === 'true') {
+    if (token) {
       setIsAdminLoggedIn(true);
       setLoggedInAdmin(adminName || 'Administrator');
       fetchApplications();
@@ -106,8 +103,8 @@ export default function Admin() {
     formData.append('file', taskPdf);
     formData.append('folder', 'tasks');
 
-    const uploadResponse = await fetch(
-      'https://aegis-api.rafiuraza474.workers.dev/api/upload-file',
+    const uploadResponse = await adminFetch(
+      '/api/upload-file',
       {
         method: 'POST',
         body: formData,
@@ -120,8 +117,8 @@ export default function Admin() {
       throw new Error('Upload failed');
     }
 
-    const response = await fetch(
-      'https://aegis-api.rafiuraza474.workers.dev/api/admin/tasks',
+    const response = await adminFetch(
+      '/api/admin/tasks',
       {
         method: 'POST',
         headers: {
@@ -189,8 +186,8 @@ export default function Admin() {
     formData.append('file', bulkTaskPdf);
     formData.append('folder', 'tasks');
 
-    const uploadResponse = await fetch(
-      'https://aegis-api.rafiuraza474.workers.dev/api/upload-file',
+    const uploadResponse = await adminFetch(
+      '/api/upload-file',
       {
         method: 'POST',
         body: formData,
@@ -209,8 +206,8 @@ export default function Admin() {
 
     const results = await Promise.all(
       studentsInDept.map(student =>
-        fetch(
-          'https://aegis-api.rafiuraza474.workers.dev/api/admin/tasks',
+        adminFetch(
+          '/api/admin/tasks',
           {
             method: 'POST',
             headers: {
@@ -269,7 +266,7 @@ export default function Admin() {
     if (!bulkCertDept) return;
     setIsBulkCertifying(true);
     try {
-      const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/applications/bulk-issue-certificate', {
+      const response = await adminFetch('/api/applications/bulk-issue-certificate', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ department: bulkCertDept }),
@@ -296,7 +293,7 @@ export default function Admin() {
   const handleDeleteMessage = async (msgId: string) => {
     if (!window.confirm("Delete this message permanently?")) return;
     try {
-      const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/messages/${msgId}`, { method: 'DELETE' });
+      const response = await adminFetch(`/api/admin/messages/${msgId}`, { method: 'DELETE' });
       if (response.ok) {
         setMessages(prev => prev.filter(m => m.id !== msgId));
         toast({ title: "Message Deleted", description: "The message has been purged." });
@@ -304,16 +301,44 @@ export default function Admin() {
     } catch (e) { toast({ variant: 'destructive', title: "Network error." }); }
   };
 
-  const handleAdminLogin = (e: React.FormEvent) => { e.preventDefault(); const matches = allowedAdmins.find(acc => acc.username === inputUsername && acc.password === inputPassword); if (matches) { sessionStorage.setItem('aegis_admin_session', 'true'); sessionStorage.setItem('aegis_admin_user', inputUsername); setIsAdminLoggedIn(true); setLoggedInAdmin(inputUsername); fetchApplications(); fetchSubmissions(); fetchMessages(); fetchAssignedTasks(); toast({ title: "Access Granted", description: `Welcome back, ${inputUsername}!` }); } else { toast({ variant: 'destructive', title: "Authentication Failed", description: "Invalid admin credentials." }); } };
-  const fetchApplications = async () => { setIsLoadingApps(true); try { const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/applications'); const data = await response.json(); if (data.success) setDbApplications(data.applications); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync records.' }); } finally { setIsLoadingApps(false); } };
-  const fetchSubmissions = async () => { try { const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions'); const data = await response.json(); if (data.success) setSubmissions(data.submissions); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync submissions.' }); } };
-  const fetchMessages = async () => { try { const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/admin/messages'); const data = await response.json(); if (data.success) setMessages(data.messages); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync messages.' }); } };
-  const fetchAssignedTasks = async () => { try { const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/admin/tasks'); const data = await response.json(); if (data.success) setAssignedTasksList(data.tasks); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync assigned tasks.' }); } };
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inputEmail, password: inputPassword }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAdminToken(data.token);
+        sessionStorage.setItem('aegis_admin_user', data.user?.name || inputEmail);
+        setIsAdminLoggedIn(true);
+        setLoggedInAdmin(data.user?.name || inputEmail);
+        fetchApplications();
+        fetchSubmissions();
+        fetchMessages();
+        fetchAssignedTasks();
+        toast({ title: "Access Granted", description: `Welcome back, ${data.user?.name || inputEmail}!` });
+      } else {
+        toast({ variant: 'destructive', title: "Authentication Failed", description: data.message || "Invalid admin credentials." });
+      }
+    } catch {
+      toast({ variant: 'destructive', title: "Network error", description: "Could not reach the login endpoint." });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+  const fetchApplications = async () => { setIsLoadingApps(true); try { const response = await adminFetch('/api/applications'); const data = await response.json(); if (data.success) setDbApplications(data.applications); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync records.' }); } finally { setIsLoadingApps(false); } };
+  const fetchSubmissions = async () => { try { const response = await adminFetch('/api/admin/submissions'); const data = await response.json(); if (data.success) setSubmissions(data.submissions); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync submissions.' }); } };
+  const fetchMessages = async () => { try { const response = await adminFetch('/api/admin/messages'); const data = await response.json(); if (data.success) setMessages(data.messages); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync messages.' }); } };
+  const fetchAssignedTasks = async () => { try { const response = await adminFetch('/api/admin/tasks'); const data = await response.json(); if (data.success) setAssignedTasksList(data.tasks); } catch (error: any) { toast({ variant: 'destructive', title: 'Fetch Error', description: 'Could not sync assigned tasks.' }); } };
 
   const handleDeleteTask = async (taskId: string) => {
     if (!window.confirm('Delete this assigned task? Any student submission for it will be removed too.')) return;
     try {
-      const res = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/tasks/${taskId}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/tasks/${taskId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         toast({ title: 'Task deleted', description: data.message });
@@ -326,15 +351,15 @@ export default function Admin() {
       toast({ variant: 'destructive', title: 'Network error' });
     }
   };
-  const handleUpdateStatus = async (appId: string, newStatus: string) => { try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${appId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus.toLowerCase() }), }); if (response.ok) { setDbApplications(prev => prev.map(app => app.id === appId ? { ...app, status: newStatus.toLowerCase() } : app)); toast({ title: `Status Updated`, description: `Application successfully ${newStatus.toLowerCase()}.` }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: 'Failed to rewrite state.' }); } };
-  const handleIssueCertificate = async (appId: string) => { if (!window.confirm("Issue certificate for this student?")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${appId}/issue-certificate`, { method: 'PUT' }); if (response.ok) { setDbApplications(prev => prev.map(app => app.id === appId ? { ...app, certificateIssued: true } : app)); toast({ title: "Certificate Issued", description: "The student has been marked as certified." }); } } catch (e) { toast({ variant: 'destructive', title: "Error", description: "Failed to issue certificate." }); } };
-  const handleUpdateSubmissionStatus = async (subId: string, newStatus: string) => { try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions/${subId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus.toLowerCase(), feedback: "" }), }); if (response.ok) { setSubmissions(prev => prev.map(sub => sub.id === subId ? { ...sub, status: newStatus.toLowerCase() } : sub)); toast({ title: 'Status Updated', description: `Submission successfully marked as ${newStatus.toLowerCase()}.` }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: 'Failed to update submission status.' }); } };
-  const handleDeleteSubmission = async (subId: string) => { if (!window.confirm("Delete this submission permanently?")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/admin/submissions/${subId}`, { method: 'DELETE' }); if (response.ok) { setSubmissions(prev => prev.filter(s => s.id !== subId)); toast({ title: "Submission Deleted", description: "The assignment review row was purged." }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: "Could not delete submission." }); } };
-  const handleDeleteApplication = async (appId: string) => { if (!window.confirm("Are you absolutely sure you want to remove this student application from the system? This action is permanent.")) return; try { const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${appId}`, { method: 'DELETE', }); const data = await response.json(); if (data.success) { setDbApplications(prev => prev.filter(app => app.id !== appId)); toast({ title: "Student Removed", description: "The record has been permanently deleted from the database." }); } } catch (err) { toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not purge database row." }); } };
+  const handleUpdateStatus = async (appId: string, newStatus: string) => { try { const response = await adminFetch(`/api/applications/${appId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus.toLowerCase() }), }); if (response.ok) { setDbApplications(prev => prev.map(app => app.id === appId ? { ...app, status: newStatus.toLowerCase() } : app)); toast({ title: `Status Updated`, description: `Application successfully ${newStatus.toLowerCase()}.` }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: 'Failed to rewrite state.' }); } };
+  const handleIssueCertificate = async (appId: string) => { if (!window.confirm("Issue certificate for this student?")) return; try { const response = await adminFetch(`/api/applications/${appId}/issue-certificate`, { method: 'PUT' }); if (response.ok) { setDbApplications(prev => prev.map(app => app.id === appId ? { ...app, certificateIssued: true } : app)); toast({ title: "Certificate Issued", description: "The student has been marked as certified." }); } } catch (e) { toast({ variant: 'destructive', title: "Error", description: "Failed to issue certificate." }); } };
+  const handleUpdateSubmissionStatus = async (subId: string, newStatus: string) => { try { const response = await adminFetch(`/api/admin/submissions/${subId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus.toLowerCase(), feedback: "" }), }); if (response.ok) { setSubmissions(prev => prev.map(sub => sub.id === subId ? { ...sub, status: newStatus.toLowerCase() } : sub)); toast({ title: 'Status Updated', description: `Submission successfully marked as ${newStatus.toLowerCase()}.` }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: 'Failed to update submission status.' }); } };
+  const handleDeleteSubmission = async (subId: string) => { if (!window.confirm("Delete this submission permanently?")) return; try { const response = await adminFetch(`/api/admin/submissions/${subId}`, { method: 'DELETE' }); if (response.ok) { setSubmissions(prev => prev.filter(s => s.id !== subId)); toast({ title: "Submission Deleted", description: "The assignment review row was purged." }); } } catch (e) { toast({ variant: 'destructive', title: 'Error', description: "Could not delete submission." }); } };
+  const handleDeleteApplication = async (appId: string) => { if (!window.confirm("Are you absolutely sure you want to remove this student application from the system? This action is permanent.")) return; try { const response = await adminFetch(`/api/applications/${appId}`, { method: 'DELETE', }); const data = await response.json(); if (data.success) { setDbApplications(prev => prev.filter(app => app.id !== appId)); toast({ title: "Student Removed", description: "The record has been permanently deleted from the database." }); } } catch (err) { toast({ variant: 'destructive', title: "Deletion Failed", description: "Could not purge database row." }); } };
   const startEditing = (app: DBApplication) => { setEditingApp(app); setEditStudentName(app.studentName || ''); setEditStudentEmail(app.studentEmail || ''); setEditNewPassword(''); setEditProgramName(app.programName); try { const parsed = JSON.parse(app.details); setEditPhone(parsed.phone || ''); setEditCountry(parsed.country || ''); } catch (e) { setEditPhone(''); setEditCountry(''); } };
-  const handleSaveEdits = async (e: React.FormEvent) => { e.preventDefault(); if (!editingApp) return; try { let currentDetails: any = {}; try { currentDetails = JSON.parse(editingApp.details); } catch(e) {} const updatedDetails = JSON.stringify({ ...currentDetails, phone: editPhone, country: editCountry, studentEmail: editStudentEmail }); const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${editingApp.id}/edit`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentName: editStudentName, studentEmail: editStudentEmail, programName: editProgramName, details: updatedDetails }) }); const data = await response.json(); if (!data.success) { throw new Error(data.error || "Failed to update text records."); } if (editNewPassword.trim() !== '') { const passResponse = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${editingApp.id}/reset-password`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPassword: editNewPassword }) }); const passData = await passResponse.json(); if (!passData.success) { throw new Error(passData.error || "Profile updated but password change failed."); } } setDbApplications(prev => prev.map(app => app.id === editingApp.id ? { ...app, studentName: editStudentName, studentEmail: editStudentEmail, programName: editProgramName, details: updatedDetails } : app)); setEditingApp(null); toast({ title: "Changes Saved", description: "Student dossier metrics and credentials updated successfully." }); } catch (err: any) { toast({ variant: 'destructive', title: "Update Error", description: err.message || "Failed to push modifications." }); } };
+  const handleSaveEdits = async (e: React.FormEvent) => { e.preventDefault(); if (!editingApp) return; try { let currentDetails: any = {}; try { currentDetails = JSON.parse(editingApp.details); } catch(e) {} const updatedDetails = JSON.stringify({ ...currentDetails, phone: editPhone, country: editCountry, studentEmail: editStudentEmail }); const response = await adminFetch(`/api/applications/${editingApp.id}/edit`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ studentName: editStudentName, studentEmail: editStudentEmail, programName: editProgramName, details: updatedDetails }) }); const data = await response.json(); if (!data.success) { throw new Error(data.error || "Failed to update text records."); } if (editNewPassword.trim() !== '') { const passResponse = await adminFetch(`/api/applications/${editingApp.id}/reset-password`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPassword: editNewPassword }) }); const passData = await passResponse.json(); if (!passData.success) { throw new Error(passData.error || "Profile updated but password change failed."); } } setDbApplications(prev => prev.map(app => app.id === editingApp.id ? { ...app, studentName: editStudentName, studentEmail: editStudentEmail, programName: editProgramName, details: updatedDetails } : app)); setEditingApp(null); toast({ title: "Changes Saved", description: "Student dossier metrics and credentials updated successfully." }); } catch (err: any) { toast({ variant: 'destructive', title: "Update Error", description: err.message || "Failed to push modifications." }); } };
 
-  if (!isAdminLoggedIn) { return ( <div className="min-h-screen flex items-center justify-center bg-background px-4"> <Card className="w-full max-w-md shadow-lg border border-border"> <CardHeader className="text-center"> <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2"><Lock className="h-6 w-6 text-primary" /></div> <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2"><Shield className="h-5 w-5 text-primary" /> Penjaga Siber Command Gate</CardTitle> </CardHeader> <CardContent> <form onSubmit={handleAdminLogin} className="space-y-4"> <Input type="text" placeholder="Admin Username" value={inputUsername} onChange={(e) => setInputUsername(e.target.value)} required /> <Input type="password" placeholder="Master Password" value={inputPassword} onChange={(e) => setInputPassword(e.target.value)} required /> <Button type="submit" className="w-full font-medium">Verify Credentials</Button> </form> </CardContent> </Card> </div> ); }
+  if (!isAdminLoggedIn) { return ( <div className="min-h-screen flex items-center justify-center bg-background px-4"> <Card className="w-full max-w-md shadow-lg border border-border"> <CardHeader className="text-center"> <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2"><Lock className="h-6 w-6 text-primary" /></div> <CardTitle className="text-2xl font-bold flex items-center justify-center gap-2"><Shield className="h-5 w-5 text-primary" /> Penjaga Siber Command Gate</CardTitle> </CardHeader> <CardContent> <form onSubmit={handleAdminLogin} className="space-y-4"> <Input type="email" placeholder="Admin Email" value={inputEmail} onChange={(e) => setInputEmail(e.target.value)} required disabled={isLoggingIn} /> <Input type="password" placeholder="Password" value={inputPassword} onChange={(e) => setInputPassword(e.target.value)} required disabled={isLoggingIn} /> <Button type="submit" className="w-full font-medium" disabled={isLoggingIn}>{isLoggingIn ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin inline" /> Verifying...</> : 'Verify Credentials'}</Button> </form> </CardContent> </Card> </div> ); }
 
   return (
     <div className="min-h-screen bg-background">
@@ -357,7 +382,7 @@ export default function Admin() {
                     <p className="text-sm font-semibold">{loggedInAdmin}</p>
                 </div>
             </div>
-            <Button size="sm" variant="outline" className="w-full text-destructive border-destructive/20" onClick={() => { sessionStorage.clear(); window.location.reload(); }}>Terminate Session</Button>
+            <Button size="sm" variant="outline" className="w-full text-destructive border-destructive/20" onClick={() => { clearAdminSession(); window.location.reload(); }}>Terminate Session</Button>
         </div>
       </div>
 

@@ -5,8 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Trash2, Edit3, Plus, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-const API = 'https://aegis-api.rafiuraza474.workers.dev';
+import { adminFetch, API_BASE } from '@/lib/adminApi';
 
 interface Announcement { id: string; title: string; body: string; created_at: string; }
 
@@ -24,7 +23,7 @@ export default function AdminAnnouncements() {
   const load = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API}/api/announcements`);
+      const res = await fetch(`${API_BASE}/api/announcements`);
       const data = await res.json();
       if (data.success) setItems(data.announcements);
     } catch {
@@ -40,7 +39,7 @@ export default function AdminAnnouncements() {
     if (!newTitle.trim() || !newBody.trim()) return;
     setIsCreating(true);
     try {
-      const res = await fetch(`${API}/api/admin/announcements`, {
+      const res = await adminFetch('/api/admin/announcements', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: newTitle.trim(), body: newBody.trim() }),
       });
@@ -62,7 +61,7 @@ export default function AdminAnnouncements() {
   const handleSaveEdit = async () => {
     if (!editingId) return;
     try {
-      const res = await fetch(`${API}/api/admin/announcements/${editingId}`, {
+      const res = await adminFetch(`/api/admin/announcements/${editingId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: editTitle.trim(), body: editBody.trim() }),
       });
@@ -82,7 +81,7 @@ export default function AdminAnnouncements() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this announcement?')) return;
     try {
-      const res = await fetch(`${API}/api/admin/announcements/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) { setItems(prev => prev.filter(a => a.id !== id)); toast({ title: 'Deleted' }); }
     } catch {

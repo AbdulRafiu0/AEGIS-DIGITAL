@@ -5,8 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, ExternalLink, CheckCircle, XCircle, FileText, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-const API = 'https://aegis-api.rafiuraza474.workers.dev';
+import { adminFetch, API_BASE } from '@/lib/adminApi';
 
 interface PaymentRow {
   id: string; programName: string; studentName: string; internId: string;
@@ -23,7 +22,7 @@ export default function AdminPayments() {
   const load = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API}/api/admin/payments`);
+      const res = await adminFetch('/api/admin/payments');
       const data = await res.json();
       if (data.success) setRows(data.payments);
     } catch {
@@ -38,7 +37,7 @@ export default function AdminPayments() {
   const act = async (id: string, action: 'verify' | 'reject') => {
     setActingId(id);
     try {
-      const res = await fetch(`${API}/api/admin/payments/${id}/${action}`, { method: 'PUT' });
+      const res = await adminFetch(`/api/admin/payments/${id}/${action}`, { method: 'PUT' });
       const data = await res.json();
       if (data.success) {
         toast({ title: action === 'verify' ? 'Payment Verified' : 'Payment Rejected' });
@@ -56,7 +55,7 @@ export default function AdminPayments() {
   const badgeVariant = (status: string) =>
     status === 'Verified' ? 'default' : status === 'Rejected' ? 'destructive' : 'secondary';
 
-  const screenshotUrl = (key: string) => `${API}/api/files/${encodeURIComponent(key)}`;
+  const screenshotUrl = (key: string) => `${API_BASE}/api/files/${encodeURIComponent(key)}`;
 
   return (
     <Card>

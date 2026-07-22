@@ -5,8 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Download, Archive, Users, Award, Clock, CheckCircle2, CreditCard } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-const API = 'https://aegis-api.rafiuraza474.workers.dev';
+import { adminFetch } from '@/lib/adminApi';
 
 interface PipelineRow {
   id: string; programName: string; applicationStatus: string; studentName: string; studentEmail: string;
@@ -41,8 +40,8 @@ export default function AdminPipeline() {
     setIsLoading(true);
     try {
       const [pipeRes, analyticsRes] = await Promise.all([
-        fetch(`${API}/api/admin/pipeline`),
-        fetch(`${API}/api/admin/analytics`),
+        adminFetch('/api/admin/pipeline'),
+        adminFetch('/api/admin/analytics'),
       ]);
       const pipeData = await pipeRes.json();
       const analyticsData = await analyticsRes.json();
@@ -59,15 +58,34 @@ export default function AdminPipeline() {
 
   const filtered = filter === 'ALL' ? rows : rows.filter(r => r.pipelineStatus === filter);
 
-  const handleExport = () => {
-    window.open(`${API}/api/admin/export`, '_blank');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const res = await adminFetch('/api/admin/export');
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `internship-report-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ variant: 'destructive', title: 'Export failed', description: 'Could not download the report.' });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleArchive = async () => {
     if (!window.confirm('Archive the entire current batch? Records stay searchable but the dashboard resets for a new intake.')) return;
     setIsArchiving(true);
     try {
-      const res = await fetch(`${API}/api/admin/archive-batch`, { method: 'PUT' });
+      const res = await adminFetch('/api/admin/archive-batch', { method: 'PUT' });
       const data = await res.json();
       if (data.success) {
         toast({ title: 'Batch Archived', description: data.message });
@@ -113,7 +131,9 @@ export default function AdminPipeline() {
           })}
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-1.5" /> Export Report</Button>
+          <Button size="sm" variant="outline" onClick={handleExport} disabled={isExporting}>
+            {isExporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Download className="h-4 w-4 mr-1.5" />} Export Report
+          </Button>
           <Button size="sm" variant="outline" className="text-destructive border-destructive/30" disabled={isArchiving} onClick={handleArchive}>
             {isArchiving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Archive className="h-4 w-4 mr-1.5" />} Archive Batch
           </Button>
