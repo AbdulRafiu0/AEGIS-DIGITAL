@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
+import { clearStudentSession } from '@/lib/studentApi';
 
 interface AuthContextType {
   isLoggedIn: boolean;
@@ -38,8 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setIsLoggedIn(false);
     setInternName('');
-    localStorage.removeItem('aegis_user');
-    localStorage.removeItem('aegis_userId');
+    clearStudentSession();
   };
 
   return (

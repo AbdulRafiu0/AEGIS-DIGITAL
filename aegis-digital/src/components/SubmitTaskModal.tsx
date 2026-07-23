@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { authFetch } from '@/lib/studentApi';
 
 interface SubmitTaskModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export default function SubmitTaskModal({ isOpen, onClose, applicationId, taskId
       formData.append('taskId', taskId);
       formData.append('notes', notes);
 
-      const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/submissions', {
+      const response = await authFetch('/api/submissions', {
         method: 'POST',
         body: formData,
       });

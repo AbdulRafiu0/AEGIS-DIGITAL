@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import SubmitTaskModal from '@/components/SubmitTaskModal';
+import { authFetch, API_BASE } from '@/lib/studentApi';
 
 interface DBApplication {
   id: string; programName: string; status: string; createdAt: string; internId?: string; certificateIssued?: boolean | number; details?: string;
@@ -96,7 +97,7 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/student/${userId}`);
+      const response = await authFetch(`/api/applications/student/${userId}`);
       const data = await response.json();
       if (data.success) {
         setApplications(data.applications);
@@ -114,7 +115,7 @@ export default function Dashboard() {
 
   const fetchAssignedTasks = async (appId: string) => {
     try {
-      const res = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/tasks?applicationId=${appId}`);
+      const res = await authFetch(`/api/tasks?applicationId=${appId}`);
       const data = await res.json();
       if (data.success) setAssignedTasks(data.tasks);
     } catch (e) { console.error(e); }
@@ -122,7 +123,7 @@ export default function Dashboard() {
 
   const fetchMySubmissions = async (appId: string) => {
     try {
-      const res = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/submissions/student/${appId}?t=${Date.now()}`);
+      const res = await authFetch(`/api/submissions/student/${appId}?t=${Date.now()}`);
       const data = await res.json();
       if (data.success) setMySubmissions(data.submissions);
     } catch (e) { console.error(e); }
@@ -130,7 +131,7 @@ export default function Dashboard() {
 
   const fetchProgress = async (appId: string) => {
     try {
-      const res = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/progress/${appId}`);
+      const res = await authFetch(`/api/progress/${appId}`);
       const data = await res.json();
       if (data.success) setProgress(data.progress);
     } catch (e) { console.error(e); }
@@ -138,7 +139,7 @@ export default function Dashboard() {
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/announcements');
+      const res = await fetch(`${API_BASE}/api/announcements`);
       const data = await res.json();
       if (data.success) setAnnouncements(data.announcements);
     } catch (e) { console.error(e); }
@@ -204,7 +205,7 @@ export default function Dashboard() {
     if (!primaryApp) return;
     setIsRequestingPayment(true);
     try {
-      const res = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${primaryApp.id}/request-payment`, { method: 'POST' });
+      const res = await authFetch(`/api/applications/${primaryApp.id}/request-payment`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         toast({ title: data.alreadyRequested ? 'Already requested' : 'Payment requested', description: data.message });
@@ -225,7 +226,7 @@ export default function Dashboard() {
     try {
       const formData = new FormData();
       formData.append('file', paymentFile);
-      const res = await fetch(`https://aegis-api.rafiuraza474.workers.dev/api/applications/${primaryApp.id}/payment-screenshot`, { method: 'POST', body: formData });
+      const res = await authFetch(`/api/applications/${primaryApp.id}/payment-screenshot`, { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) {
         toast({ title: 'Screenshot uploaded', description: 'Awaiting admin verification.' });
@@ -446,7 +447,7 @@ export default function Dashboard() {
                             {hasSubmitted ? <Badge variant="secondary" className="text-[10px]">Submitted</Badge> : <span className="text-[10px] bg-muted px-2 py-1 rounded">Expand</span>}
                           </summary>
                           <div className="mt-3 pt-3 border-t space-y-3">
-                            <a href={`https://aegis-api.rafiuraza474.workers.dev/api/files/${encodeURIComponent(task.file_key)}`} target="_blank" rel="noopener noreferrer" className="text-primary text-sm flex items-center gap-1 hover:underline"><ExternalLink className="h-4 w-4" /> Open Task Resources</a>
+                            <a href={`${API_BASE}/api/files/${encodeURIComponent(task.file_key)}`} target="_blank" rel="noopener noreferrer" className="text-primary text-sm flex items-center gap-1 hover:underline"><ExternalLink className="h-4 w-4" /> Open Task Resources</a>
                             <Button 
                               size="sm" 
                               className="w-full" 

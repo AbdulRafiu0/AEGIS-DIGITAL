@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { setStudentToken, API_BASE } from '@/lib/studentApi';
 
 const formSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -42,7 +43,7 @@ export default function Login() {
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('https://aegis-api.rafiuraza474.workers.dev/api/login', {
+      const response = await fetch(`${API_BASE}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -59,9 +60,14 @@ export default function Login() {
         throw new Error(result.message || 'Invalid credentials.');
       }
 
+      if (!result.token) {
+        throw new Error('Login succeeded but no session token was returned. Please try again.');
+      }
+
       // 1. Write authentication payload tokens to local storage first
       localStorage.setItem('aegis_user', JSON.stringify({ id: result.user.id, name: result.user.name, email: result.user.email }));
       localStorage.setItem('aegis_userId', result.user.id);
+      setStudentToken(result.token);
 
       // 2. Hydrate global authentication context variables
       login(result.user.name);
